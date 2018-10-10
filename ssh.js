@@ -97,3 +97,53 @@ exports.dir = async (ip, path) => {
 
     return promise;
 }
+
+exports.file = async (ip, path) => {
+    const promise = new Promise(resolve => {
+        getConnection(ip)
+            .then(connection => {
+                connection.sftp((err, sftp) => {
+                    if (err) throw err;
+
+                    sftp.open(path, 'r', (err, fd) => {
+                        if (err) throw err;
+                        sftp.fstat(fd, (err, stats) => {
+                            if (err) throw err;
+
+                            var bufferSize = stats.size,
+                                chunkSize = 16384,
+                                buffer = new Buffer(bufferSize),
+                                bytesRead = 0,
+                                errorOccured = false;
+
+                            while (bytesRead < bufferSize && !errorOccured) {
+                                if ((bytesRead + chunkSize) > bufferSize) {
+                                    chunkSize = (bufferSize - bytesRead);
+                                }
+                                sftp.read(fd, buffer, bytesRead, chunkSize, bytesRead, callbackFunc);
+                                bytesRead += chunkSize;
+                            }
+
+                            var totalBytesRead = 0;
+                            var data = [];
+
+                            function callbackFunc(err, bytesRead, buf, pos) {
+                                if (err) {
+                                    writeToErrorLog("downloadFile(): Error retrieving the file.");
+                                    throw err;
+                                }
+                                totalBytesRead += bytesRead;
+                                data.push(buf);
+                                if (totalBytesRead === bufferSize) {
+                                    m_fileBuffer = Buffer.concat(data);
+                                    resolve(m_fileBuffer.toString());
+                                }
+                            }
+                        });
+                    });
+                });
+            });
+    });
+
+    return promise;
+}

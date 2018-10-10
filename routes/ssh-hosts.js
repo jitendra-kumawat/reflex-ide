@@ -58,4 +58,12 @@ router.get('/dir', async (req, res, next) => {
     return res.send(response);
 });
 
+router.get('/file', async (req, res, next) => {
+    const ip = req.query.ip ? req.query.ip : credentials.defaultIP;
+    const path = req.query.path ? req.query.path : credentials.defaultPath;
+
+    const response = await (SSHUtil.file(ip, path));
+    return res.send(response);
+})
+
 module.exports = router;
