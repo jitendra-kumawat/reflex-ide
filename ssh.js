@@ -129,7 +129,7 @@ exports.file = async (ip, path) => {
 
                             function callbackFunc(err, bytesRead, buf, pos) {
                                 if (err) {
-                                    writeToErrorLog("downloadFile(): Error retrieving the file.");
+                                    console.error("downloadFile(): Error retrieving the file.");
                                     throw err;
                                 }
                                 totalBytesRead += bytesRead;
