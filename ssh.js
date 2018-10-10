@@ -1,7 +1,7 @@
 var express = require('express');
 var Client = require('ssh2').Client;
 var _ = require('lodash');
-var {gUsername, gPassword} = require('./application/credentials');
+var credentials = require('./application/config');
 
 const sshConnections = [];
 
@@ -9,31 +9,91 @@ function findConnection(ip) {
     return sshConnections.find((element) => element.config.host === ip);
 }
 
-// function createConnection(ip, username, password)
+createConnection = (ip) => {
+    return new Promise(resolve => {
+        connection = new Client();
+        connection.on('ready', () => {
+            console.log('New connection ready with: ' + ip);
+            sshConnections.push(connection)
+            resolve(connection);
+        }).connect({
+            host: ip,
+            username: credentials.username,
+            password: credentials.password
+        });
+    });
+};
 
-exports.connect = (ip, username, password) => {
+getConnection = async (ip) => {
+
     const promise = new Promise(resolve => {
         let connection = findConnection(ip);
 
         if (_.isNil(connection)) {
-            connection = new Client();
-            connection.on('ready', () => {
-                console.log('READY connection with: ' + ip);
-                sshConnections.push(connection)
-                resolve('Connection Successfull.');
-            }).connect({
-                host: ip,
-                username: username,
-                password: password
-            });
+            createConnection(ip)
+                .then(connection => {
+
+                    resolve(connection);
+                })
         } else {
-            resolve(connection.config.host);
+            resolve(connection);
         }
+
     });
 
     return promise;
 }
 
-exports.cmd = (ip, cmd) => {
+exports.connect = async (ip) => {
+    const promise = new Promise(resolve => {
+        getConnection(ip)
+            .then(connection => {
+                resolve('Connection ready with: ' + ip);
+            });
+    });
 
+    return promise;
+}
+
+exports.cmd = async (ip, cmd) => {
+    const promise = new Promise(resolve => {
+        getConnection(ip)
+            .then(connection => {
+                connection.exec(cmd, (error, stream) => {
+                    if (error) {
+                        console.error('Error when executing the command on host machine,', error);
+                        resolve(error);
+                    }
+
+                    stream.on('data', (data) => resolve(data));
+                    stream.stderr.on('data', (data) => resolve(data));
+                    stream.on('close', (code, signal) => {
+                        console.error('Process close when executing command', code, signal);
+                        resolve(signal);
+                    });
+                });
+            });
+    });
+
+    return promise;
+}
+
+exports.dir = async (ip, path) => {
+    const promise = new Promise(resolve => {
+        getConnection(ip)
+            .then(connection => {
+                connection.sftp((err, sftp) => {
+                    if (err) throw err;
+
+                    sftp.readdir(path, (err, list) => {
+                        if (err) throw err;
+                        resolve(list);
+                        // connection.end();
+                    });
+
+                });
+            });
+    });
+
+    return promise;
 }
