@@ -10,17 +10,19 @@ router.get('/', function (req, res, next) {
 });
 
 router.get('/ssh', async (req, res, next) => {
-    const ip = req.query.ip;
-    const username = req.query.username ? req.query.username : credentials.username;
-    const password = req.query.password ? req.query.password : credentials.password;
-
-    console.log('Connecting to: ' + ip, username, password);
-
     try {
+        const ip = req.query.ip;
+        const username = req.query.username ? req.query.username : credentials.username;
+        const password = req.query.password ? req.query.password : credentials.password;
+
+        console.log('Connecting to: ' + ip, username, password);
+
         const connIp = await (SSHUtil.connect(ip, username, password));
         res.send(connIp);
     } catch (error) {
         console.error(error);
+        res.statusCode = 500;
+        next(error);
     }
 });
 
@@ -45,25 +47,40 @@ router.get('/cmd', async (req, res, next) => {
         res.send(response.toString());
     } catch (error) {
         console.error('Error in command execution', error);
-        throw(error);
+        res.statusCode = 500;
+        next(error);
     }
 });
 
 router.get('/dir', async (req, res, next) => {
-    const ip = req.query.ip ? req.query.ip : credentials.defaultIP;
-    const path = req.query.path ? req.query.path : credentials.defaultPath;
+    try {
 
-    const response = await (SSHUtil.dir(ip, path));
+        const ip = req.query.ip ? req.query.ip : credentials.defaultIP;
+        const path = req.query.path ? req.query.path : credentials.defaultPath;
 
-    return res.send(response);
+        const response = await (SSHUtil.dir(ip, path));
+
+        return res.send(response);
+    } catch (error) {
+        console.error('Error in directory listing ', error);
+        res.statusCode = 500;
+        next(error);
+    }
 });
 
 router.get('/file', async (req, res, next) => {
-    const ip = req.query.ip ? req.query.ip : credentials.defaultIP;
-    const path = req.query.path ? req.query.path : credentials.defaultPath;
+    try {
 
-    const response = await (SSHUtil.file(ip, path));
-    return res.send(response);
+        const ip = req.query.ip ? req.query.ip : credentials.defaultIP;
+        const path = req.query.path ? req.query.path : credentials.defaultPath;
+
+        const response = await (SSHUtil.file(ip, path));
+        res.send(response);
+    } catch (error) {
+        console.error('Error in directory listing ', error);
+        res.statusCode = 500;
+        next(error);
+    }
 })
 
 module.exports = router;
